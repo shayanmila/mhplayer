@@ -1,7 +1,5 @@
 name: Build MH Player APK
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 permissions:
   contents: write
