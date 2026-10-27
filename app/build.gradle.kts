@@ -2,7 +2,7 @@ plugins { id("com.android.application"); id("org.jetbrains.kotlin.android"); id(
 android {
  namespace = "com.masoomdev.mhplayer"
  compileSdk = 36
- defaultConfig { applicationId = "com.masoomdev.mhplayer"; minSdk = 24; targetSdk = 36; versionCode = (System.getenv("MH_VERSION_CODE")?.toIntOrNull() ?: 27); versionName = "1.0.27" }
+ defaultConfig { applicationId = if (System.getenv("MH_CLONE_BUILD") == "true") "com.masoomdev.mhplayer.clone" else "com.masoomdev.mhplayer"; minSdk = 24; targetSdk = 36; versionCode = (System.getenv("MH_VERSION_CODE")?.toIntOrNull() ?: 27); versionName = "1.0.27" }
  val releaseStoreFile = System.getenv("MH_KEYSTORE_PATH")
  signingConfigs {
   if (!releaseStoreFile.isNullOrBlank()) {
