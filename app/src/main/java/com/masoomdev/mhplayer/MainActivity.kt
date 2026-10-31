@@ -531,6 +531,14 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
     fun closePlayer() {
         selected?.let { prefs.edit().putLong("position_${it.uri}", player.currentPosition.coerceAtLeast(0L)).putLong("duration_${it.uri}", player.duration.coerceAtLeast(0L)).apply() }
         player.pause(); player.clearMediaItems(); if (holdSpeedActive) player.setPlaybackSpeed(playbackSpeed); holdSpeedActive = false; selected = null; locked = false; pinchZoom = 1f; activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED; activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    androidx.compose.runtime.DisposableEffect(selected, pipActive) {
+        val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
+        if (selected != null && !pipActive) {
+            controller.systemBarsBehavior = androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        } else controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        onDispose { controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars()) }
+    }
     BackHandler(enabled = !pipActive) { if (quickSettingsOpen) quickSettingsOpen = false else if (exitPrompt) exitPrompt = false else if (selected != null) { if (locked) locked = false else closePlayer() } else if (infoPage != null) infoPage = null else if (settingsOpen) settingsOpen = false else if (currentFolder != null) currentFolder = null else exitPrompt = true }
     if (streamDialog) AlertDialog(
         onDismissRequest = { streamDialog = false },
@@ -1106,11 +1114,17 @@ Full license texts and dependency notices should be made available on the develo
                             var startLevel = 0f
                             var accumulated = 0f
                             var brightnessSide = true
+                            var horizontalGesture = false
+                            var verticalGesture = false
+                            var horizontalDistance = 0f
                             detectDragGestures(
                                 onDragStart = { offset ->
                                     startX = offset.x
                                     brightnessSide = startX < size.width / 2f
                                     accumulated = 0f
+                                    horizontalDistance = 0f
+                                    horizontalGesture = false
+                                    verticalGesture = false
                                     startLevel = if (brightnessSide) {
                                         val value = activity.window.attributes.screenBrightness
                                         if (value < 0f) 0.5f else value
@@ -1119,13 +1133,28 @@ Full license texts and dependency notices should be made available on the develo
                                         audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat() / max
                                     }
                                     gestureBrightness = brightnessSide
-                                    gestureLevel = startLevel
+                                    gestureLevel = -1f
                                     controlsInteraction++
                                 },
-                                onDragEnd = { gestureLevel = -1f },
+                                onDragEnd = { gestureLevel = -1f; horizontalGesture = false; verticalGesture = false },
                                 onDragCancel = { gestureLevel = -1f },
                                 onDrag = { change, dragAmount ->
-                                    if (!locked && (if (brightnessSide) brightnessGesture else volumeGesture) && kotlin.math.abs(dragAmount.y) >= kotlin.math.abs(dragAmount.x)) {
+                                    if (locked) return@detectDragGestures
+                                    if (!horizontalGesture && !verticalGesture) {
+                                        if (kotlin.math.abs(dragAmount.x) > kotlin.math.abs(dragAmount.y) * 1.2f) horizontalGesture = true
+                                        else if (kotlin.math.abs(dragAmount.y) > kotlin.math.abs(dragAmount.x) * 1.2f) verticalGesture = true
+                                    }
+                                    if (horizontalGesture) {
+                                        change.consume()
+                                        horizontalDistance += dragAmount.x
+                                        val seekMs = (horizontalDistance / size.width.coerceAtLeast(1).toFloat() * 60000f).toLong()
+                                        if (kotlin.math.abs(seekMs) >= 500L) {
+                                            val end = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+                                            player.seekTo((player.currentPosition + seekMs).coerceIn(0L, end))
+                                            horizontalDistance = 0f
+                                            controlsInteraction++
+                                        }
+                                    } else if (verticalGesture && (if (brightnessSide) brightnessGesture else volumeGesture)) {
                                         change.consume()
                                         accumulated -= dragAmount.y / size.height.coerceAtLeast(1).toFloat()
                                         val level = (startLevel + accumulated * 1.5f).coerceIn(0f, 1f)
@@ -1369,7 +1398,7 @@ Full license texts and dependency notices should be made available on the develo
                     PlaylistLibrary(prefs = prefs, media = media.filter { includeAndroidMedia || !it.folder.trimStart('/').startsWith("Android/", ignoreCase = true) }, onPlay = { selected = it })
                 } else {
                 val recentItems = remember(media, recentUris) { recentUris.mapNotNull { uri -> media.firstOrNull { it.uri.toString() == uri } } }
-                run {
+                if (currentFolder == null) {
                     Spacer(Modifier.height(12.dp))
                     if (recentItems.isEmpty()) {
                         val previous = media.firstOrNull { it.uri.toString() == lastPlayedUri }
