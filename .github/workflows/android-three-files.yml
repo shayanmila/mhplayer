@@ -43,6 +43,19 @@ jobs:
           done
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/mh-release.jks"
           echo "MH_KEYSTORE_PATH=$RUNNER_TEMP/mh-release.jks" >> "$GITHUB_ENV"
+      - name: Verify AndroidX Fragment dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle :app:dependencyInsight --configuration releaseRuntimeClasspath --dependency androidx.fragment:fragment --no-daemon | tee "$RUNNER_TEMP/fragment-dependency.txt"
+          if grep -Eq 'androidx.fragment:fragment:1\\.0\\.0([[:space:]]|$)' "$RUNNER_TEMP/fragment-dependency.txt"; then
+            echo "::error::Outdated AndroidX Fragment 1.0.0 detected"
+            exit 1
+          fi
+          grep -q 'androidx.fragment:fragment:1.8.9' "$RUNNER_TEMP/fragment-dependency.txt" || {
+            echo "::error::Expected AndroidX Fragment 1.8.9 not resolved"
+            exit 1
+          }
       - name: Build signed Main APK and signed Play Console AAB
         env:
           MH_VERSION_CODE: ${{ inputs.version_code }}
