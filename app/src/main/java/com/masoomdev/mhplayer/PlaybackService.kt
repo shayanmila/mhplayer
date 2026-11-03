@@ -19,6 +19,8 @@ import androidx.media3.session.MediaSessionService
 object PlaybackHolder {
     private var instance: ExoPlayer? = null
 
+    fun current(): ExoPlayer? = instance
+
     fun release() {
         instance?.run {
             stop()
@@ -125,8 +127,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        val player = PlaybackHolder.player(this)
-        player.removeListener(listener)
+        PlaybackHolder.current()?.removeListener(listener)
         stopForeground(STOP_FOREGROUND_REMOVE)
         session?.release()
         session = null
