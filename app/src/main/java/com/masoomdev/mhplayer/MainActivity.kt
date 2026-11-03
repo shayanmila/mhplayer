@@ -157,6 +157,8 @@ private fun MediaThumbnail(item: LocalMedia, modifier: Modifier = Modifier) {
 }
 
 class MainActivity : ComponentActivity() {
+    var restoredActivity: Boolean = false
+        private set
     private val updateNotifier by lazy { UpdateNotifier(this) }
     fun checkForAppUpdate(manual: Boolean = false) = updateNotifier.check(manual)
     var pipActive by mutableStateOf(false)
@@ -166,6 +168,7 @@ class MainActivity : ComponentActivity() {
         pipActive = isInPictureInPictureMode
     }
     override fun onCreate(savedInstanceState: Bundle?) {
+        restoredActivity = savedInstanceState != null
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.auto(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
@@ -223,7 +226,8 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
     val prefs = remember { activity.getSharedPreferences("mh_player", 0) }
     val player = remember { PlaybackHolder.player(context) }
     DisposableEffect(player) { onDispose { activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) } }
-    var splash by remember { mutableStateOf(true) }
+    var splash by remember { mutableStateOf(!activity.restoredActivity && initialUri == null) }
+    LaunchedEffect(Unit) { if (splash) { delay(1000L); splash = false } }
     var exitPrompt by remember { mutableStateOf(false) }
     var streamDialog by remember { mutableStateOf(false) }
     var streamUrl by remember { mutableStateOf("") }
@@ -243,6 +247,7 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
     var resumePlayback by remember { mutableStateOf(prefs.getBoolean("resume", true)) }
     var autoPlay by remember { mutableStateOf(prefs.getBoolean("autoplay", true)) }
     var backgroundPlay by remember { mutableStateOf(prefs.getBoolean("background_play", false)) }
+    SideEffect { PlaybackHolder.setBackgroundEnabled(backgroundPlay) }
 
     var brightnessGesture by remember { mutableStateOf(prefs.getBoolean("brightness_gesture", true)) }
     var volumeGesture by remember { mutableStateOf(prefs.getBoolean("volume_gesture", true)) }
@@ -256,8 +261,10 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
             selected = LocalMedia(title, uri, isVideoMedia(context, uri), 0L, "Now playing", 0L, 0L)
         }
     }
-    DisposableEffect(backgroundPlay, selected?.uri) {
-        if (backgroundPlay && selected != null) {
+    // Maintain a stable media session for the selected file; toggling background
+    // playback must not unbind/rebind and disturb an active decoder.
+    DisposableEffect(selected?.uri) {
+        if (selected != null) {
             val intent = Intent(context, PlaybackService::class.java)
             val connection = object : android.content.ServiceConnection {
                 override fun onServiceConnected(name: android.content.ComponentName?, binder: android.os.IBinder?) {}
@@ -490,7 +497,6 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
     }
     val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { refreshMedia() }
     LaunchedEffect(Unit) {
-        splash = false
         val needed = if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO) else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         val missing = needed.filter { activity.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isNotEmpty()) permissions.launch(missing.toTypedArray()) else refreshMedia()
@@ -773,8 +779,17 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
             )
         }
         if (splash) {
+            val transition = rememberInfiniteTransition(label = "Splash loading")
+            val pulse by transition.animateFloat(initialValue = 0.92f, targetValue = 1.06f,
+                animationSpec = infiniteRepeatable(animation = tween(500), repeatMode = RepeatMode.Reverse), label = "Logo pulse")
             Box(Modifier.fillMaxSize().background(dark), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) { Icon(Icons.Default.PlayCircle, null, Modifier.size(86.dp), tint = purple); Spacer(Modifier.height(12.dp)); Text("MH PLAYER", fontSize = 32.sp, color = foreground); Text("Your media. Your device.", color = secondaryText) }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.PlayCircle, null, Modifier.size(86.dp).graphicsLayer(scaleX = pulse, scaleY = pulse), tint = purple)
+                    Spacer(Modifier.height(12.dp))
+                    Text("MH PLAYER", fontSize = 32.sp, color = foreground)
+                    Spacer(Modifier.height(16.dp))
+                    CircularProgressIndicator(color = purple, modifier = Modifier.size(26.dp), strokeWidth = 2.dp)
+                }
             }
         } else if (infoPage != null) {
             Column(Modifier.fillMaxSize().background(dark).padding(16.dp)) {
