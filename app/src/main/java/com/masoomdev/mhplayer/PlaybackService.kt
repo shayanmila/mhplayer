@@ -78,7 +78,8 @@ class PlaybackService : MediaSessionService() {
     private fun updateNotification() {
         val activeSession = session ?: return
         val player = PlaybackHolder.player(this)
-        if (player.mediaItemCount == 0) {
+        if (player.mediaItemCount == 0 || !player.isPlaying) {
+            // Do not promote a bound-only or paused player to a foreground service.
             stopForeground(STOP_FOREGROUND_REMOVE)
             return
         }
