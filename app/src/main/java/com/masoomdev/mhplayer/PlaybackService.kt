@@ -19,6 +19,15 @@ import androidx.media3.session.MediaSessionService
 object PlaybackHolder {
     private var instance: ExoPlayer? = null
 
+    fun release() {
+        instance?.run {
+            stop()
+            clearMediaItems()
+            release()
+        }
+        instance = null
+    }
+
     fun player(context: Context): ExoPlayer {
         return instance ?: ExoPlayer.Builder(
             context.applicationContext,
@@ -113,10 +122,13 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
-        PlaybackHolder.player(this).removeListener(listener)
+        val player = PlaybackHolder.player(this)
+        player.removeListener(listener)
         stopForeground(STOP_FOREGROUND_REMOVE)
         session?.release()
         session = null
+        // The task has gone: never leave a detached ExoPlayer producing audio.
+        PlaybackHolder.release()
         super.onDestroy()
     }
 }
