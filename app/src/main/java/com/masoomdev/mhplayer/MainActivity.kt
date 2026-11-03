@@ -85,6 +85,15 @@ import kotlinx.coroutines.launch
 
 private val dark = Color(0xFF0D1020)
 private val purple = Color(0xFF9B72FF)
+
+private fun isVideoMedia(context: android.content.Context, uri: Uri, intentType: String? = null): Boolean {
+    val mime = intentType?.takeIf { it.startsWith("audio/") || it.startsWith("video/") }
+        ?: runCatching { context.contentResolver.getType(uri) }.getOrNull()
+    if (mime?.startsWith("audio/") == true) return false
+    if (mime?.startsWith("video/") == true) return true
+    val name = uri.lastPathSegment?.lowercase()?.substringBefore('?') ?: ""
+    return !listOf(".mp3", ".m4a", ".aac", ".flac", ".wav", ".ogg", ".opus", ".wma", ".amr").any { name.endsWith(it) }
+}
 data class LocalMedia(val title: String, val uri: Uri, val video: Boolean, val duration: Long, val folder: String, val size: Long, val dateAdded: Long)
 
 // Keep decoded previews bounded; only visible lazy-list items request a thumbnail.
@@ -244,7 +253,7 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
         val uri = current?.localConfiguration?.uri
         if (uri != null && player.mediaItemCount > 0) {
             val title = current.mediaMetadata.title?.toString() ?: "Now playing"
-            selected = LocalMedia(title, uri, true, 0L, "Now playing", 0L, 0L)
+            selected = LocalMedia(title, uri, isVideoMedia(context, uri), 0L, "Now playing", 0L, 0L)
         }
     }
     DisposableEffect(backgroundPlay, selected?.uri) {
@@ -374,6 +383,7 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
         }
     }
     var lastRecoveryUri by remember { mutableStateOf<String?>(null) }
+    var recoveryAttempts by remember { mutableIntStateOf(0) }
     val latestMedia by rememberUpdatedState(media)
     DisposableEffect(player) {
         val listener = object : Player.Listener {
@@ -382,11 +392,12 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
                 val uri = mediaItem?.localConfiguration?.uri ?: return
                 if (selected?.uri != uri) selected = latestMedia.firstOrNull { it.uri == uri }
                     ?: player.currentMediaItem?.let { current ->
-                        LocalMedia(current.mediaMetadata.title?.toString() ?: uri.lastPathSegment ?: "Media", uri, selected?.video ?: true, 0L, selected?.folder ?: "Opened files", 0L, 0L)
+                        LocalMedia(current.mediaMetadata.title?.toString() ?: uri.lastPathSegment ?: "Media", uri, isVideoMedia(context, uri), 0L, selected?.folder ?: "Opened files", 0L, 0L)
                     }
             }
             override fun onPlaybackStateChanged(playbackState: Int) {
                 trackRevision++
+                if (playbackState == Player.STATE_READY) recoveryAttempts = 0
                 if (playbackState == Player.STATE_ENDED && playlistOnly && selected != null && !player.hasNextMediaItem()) {
                     val queue = media.filter { it.uri.toString() in playlistUris && it.video == showVideo }
                     val index = queue.indexOfFirst { it.uri == selected?.uri }
@@ -398,7 +409,8 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
                 val recoverable = error.errorCode == androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
                     error.errorCode == androidx.media3.common.PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ||
                     error.errorCode == androidx.media3.common.PlaybackException.ERROR_CODE_IO_UNSPECIFIED
-                if (recoverable && lastRecoveryUri != uri) {
+                if (recoverable && recoveryAttempts < 2) {
+                    recoveryAttempts++
                     lastRecoveryUri = uri
                     player.prepare()
                 }
@@ -460,7 +472,7 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
     var duration by remember { mutableLongStateOf(0L) }
     val audioManager = remember { context.getSystemService(AudioManager::class.java) }
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) selected = LocalMedia(uri.lastPathSegment ?: "Opened file", uri, true, 0L, "Opened files", 0L, 0L)
+        if (uri != null) selected = LocalMedia(uri.lastPathSegment ?: "Opened file", uri, isVideoMedia(context, uri), 0L, "Opened files", 0L, 0L)
     }
     val subtitlePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -482,11 +494,14 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
         val needed = if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO) else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         val missing = needed.filter { activity.checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isNotEmpty()) permissions.launch(missing.toTypedArray()) else refreshMedia()
-        if (initialUri != null) selected = LocalMedia("Opened file", initialUri, true, 0L, "Opened files", 0L, 0L)
+        if (initialUri != null) selected = LocalMedia("Opened file", initialUri, isVideoMedia(context, initialUri, activity.intent?.type), 0L, "Opened files", 0L, 0L)
     }
     LaunchedEffect(selected?.uri) {
         val item = selected ?: return@LaunchedEffect
-        if (lastRecoveryUri != item.uri.toString()) lastRecoveryUri = null
+        if (lastRecoveryUri != item.uri.toString()) {
+            lastRecoveryUri = null
+            recoveryAttempts = 0
+        }
         pinchZoom = 1f
         if (!rememberRatio) resizeChoice = 0
         holdSpeedActive = false
@@ -1285,7 +1300,7 @@ Full license texts and dependency notices should be made available on the develo
                                             Modifier.width(72.dp).clickable {
                                                 expandedControls = false
                                                 when (id) {
-                                                    0 -> { player.pause(); backgroundPlay = true; prefs.edit().putBoolean("background_play", true).apply() }
+                                                    0 -> { backgroundPlay = true; prefs.edit().putBoolean("background_play", true).apply() }
                                                     1 -> { orientationLocked = !orientationLocked; activity.requestedOrientation = if (orientationLocked) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
                                                     2 -> equalizerOpen = true
                                                     3 -> { muted = !muted; player.volume = if (muted) 0f else 1f }
