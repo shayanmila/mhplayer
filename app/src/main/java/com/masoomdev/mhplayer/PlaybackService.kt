@@ -18,6 +18,14 @@ import androidx.media3.session.MediaSessionService
 /** Single player instance shared by the activity and Android media notification. */
 object PlaybackHolder {
     private var instance: ExoPlayer? = null
+    private var backgroundEnabled = false
+    var refreshNotification: (() -> Unit)? = null
+    fun setBackgroundEnabled(enabled: Boolean) {
+        if (backgroundEnabled == enabled) return
+        backgroundEnabled = enabled
+        refreshNotification?.invoke()
+    }
+    fun isBackgroundEnabled(): Boolean = backgroundEnabled
 
     fun current(): ExoPlayer? = instance
 
@@ -78,7 +86,7 @@ class PlaybackService : MediaSessionService() {
     private fun updateNotification() {
         val activeSession = session ?: return
         val player = PlaybackHolder.player(this)
-        if (player.mediaItemCount == 0 || !player.isPlaying) {
+        if (!PlaybackHolder.isBackgroundEnabled() || player.mediaItemCount == 0 || !player.isPlaying) {
             // Do not promote a bound-only or paused player to a foreground service.
             stopForeground(STOP_FOREGROUND_REMOVE)
             return
@@ -111,6 +119,7 @@ class PlaybackService : MediaSessionService() {
             NotificationChannel(channelId, "Media playback", NotificationManager.IMPORTANCE_LOW))
         session = MediaSession.Builder(this, PlaybackHolder.player(this)).build()
         PlaybackHolder.player(this).addListener(listener)
+        PlaybackHolder.refreshNotification = { updateNotification() }
         updateNotification()
     }
 
@@ -128,6 +137,7 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        PlaybackHolder.refreshNotification = null
         PlaybackHolder.current()?.removeListener(listener)
         stopForeground(STOP_FOREGROUND_REMOVE)
         session?.release()
