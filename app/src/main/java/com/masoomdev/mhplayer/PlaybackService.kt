@@ -43,6 +43,7 @@ object PlaybackHolder {
 
 class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
+    private var taskRemoved = false
     private val channelId = "mh_playback"
     private val notificationId = 1001
     private fun actionIntent(action: String, code: Int): PendingIntent =
@@ -73,6 +74,7 @@ class PlaybackService : MediaSessionService() {
         override fun onPlaybackStateChanged(playbackState: Int) { updateNotification() }
     }
     private fun updateNotification() {
+        val activeSession = session ?: return
         val player = PlaybackHolder.player(this)
         if (player.mediaItemCount == 0) {
             stopForeground(STOP_FOREGROUND_REMOVE)
@@ -94,7 +96,7 @@ class PlaybackService : MediaSessionService() {
                 if (player.isPlaying) "Pause" else "Play", actionIntent("mh.TOGGLE", 2))
             .addAction(android.R.drawable.ic_media_next, "Next", actionIntent("mh.NEXT", 3))
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Stop", actionIntent("mh.STOP", 4))
-            .setStyle(androidx.media3.session.MediaStyleNotificationHelper.MediaStyle(session!!)
+            .setStyle(androidx.media3.session.MediaStyleNotificationHelper.MediaStyle(activeSession)
                 .setShowActionsInCompactView(0, 1, 2))
             .build()
         startForeground(notificationId, notification)
@@ -112,6 +114,7 @@ class PlaybackService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = session
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        taskRemoved = true
         val player = PlaybackHolder.player(this)
         player.pause()
         player.stop()
@@ -127,8 +130,9 @@ class PlaybackService : MediaSessionService() {
         stopForeground(STOP_FOREGROUND_REMOVE)
         session?.release()
         session = null
-        // The task has gone: never leave a detached ExoPlayer producing audio.
-        PlaybackHolder.release()
+        // A bound-only service can be destroyed while the Activity is still using
+        // the shared player. Only a removed task owns the final player cleanup.
+        if (taskRemoved) PlaybackHolder.release()
         super.onDestroy()
     }
 }
