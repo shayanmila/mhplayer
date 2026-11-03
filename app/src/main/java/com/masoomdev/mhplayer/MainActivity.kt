@@ -169,6 +169,16 @@ class MainActivity : ComponentActivity() {
         setContent { PlayerApp(this, intent?.data) }
         checkForAppUpdate()
     }
+
+    override fun onDestroy() {
+        // A real task exit must not leave audio playing without a visible app.
+        // Do not interrupt ordinary Home/background playback or configuration changes.
+        if (isFinishing && !isChangingConfigurations) {
+            PlaybackHolder.release()
+            stopService(Intent(this, PlaybackService::class.java))
+        }
+        super.onDestroy()
+    }
 }
 
 private suspend fun scanMedia(activity: ComponentActivity): List<LocalMedia> {
