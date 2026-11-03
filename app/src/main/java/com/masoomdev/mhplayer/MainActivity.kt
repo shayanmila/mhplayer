@@ -1285,7 +1285,7 @@ Full license texts and dependency notices should be made available on the develo
                                             Modifier.width(72.dp).clickable {
                                                 expandedControls = false
                                                 when (id) {
-                                                    0 -> { player.pause(); backgroundPlay = true }
+                                                    0 -> { player.pause(); backgroundPlay = true; prefs.edit().putBoolean("background_play", true).apply() }
                                                     1 -> { orientationLocked = !orientationLocked; activity.requestedOrientation = if (orientationLocked) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
                                                     2 -> equalizerOpen = true
                                                     3 -> { muted = !muted; player.volume = if (muted) 0f else 1f }
