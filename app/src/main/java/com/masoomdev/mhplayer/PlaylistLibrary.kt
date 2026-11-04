@@ -47,6 +47,8 @@ fun PlaylistLibrary(prefs: SharedPreferences, media: List<LocalMedia>, onPlay: (
     var folder by remember { mutableStateOf<String?>(null) }
     val active = playlists.firstOrNull { it.id == activeId }
     val green = Color(0xFF31C66B)
+    val mediaByUri = remember(media) { media.associateBy { it.uri.toString() } }
+    val activeUriSet = remember(active?.uris) { active?.uris?.toHashSet() ?: emptySet<String>() }
 
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         TextButton(onClick = { if (active != null) { activeId = null; adding = false } }) {
@@ -74,8 +76,8 @@ fun PlaylistLibrary(prefs: SharedPreferences, media: List<LocalMedia>, onPlay: (
         }
     } else if (adding) {
         Text("Select ${if (active.video) "videos" else "audio"} from any folder", modifier = Modifier.padding(8.dp))
-        val eligible = media.filter { it.video == active.video }
-        val folders = eligible.map { it.folder }.distinct().sorted()
+        val eligible = remember(media, active.video) { media.filter { it.video == active.video } }
+        val folders = remember(eligible) { eligible.map { it.folder }.distinct().sorted() }
         if (folder != null) TextButton(onClick = { folder = null }) { Text("‹ All folders") }
         LazyColumn {
             if (folder == null) {
@@ -84,7 +86,7 @@ fun PlaylistLibrary(prefs: SharedPreferences, media: List<LocalMedia>, onPlay: (
                 }
             } else {
                 items(eligible.filter { it.folder == folder }, key = { it.uri.toString() }) { file ->
-                    val included = file.uri.toString() in active.uris
+                    val included = file.uri.toString() in activeUriSet
                     Row(Modifier.fillMaxWidth().clickable {
                         val files = if (included) active.uris - file.uri.toString() else active.uris + file.uri.toString()
                         save(playlists.map { if (it.id == active.id) it.copy(uris = files) else it })
@@ -102,7 +104,7 @@ fun PlaylistLibrary(prefs: SharedPreferences, media: List<LocalMedia>, onPlay: (
         if (active.uris.isEmpty()) Text("Empty playlist. Tap Add Files to choose media.", modifier = Modifier.padding(16.dp))
         LazyColumn {
             items(active.uris) { uri ->
-                val file = media.firstOrNull { it.uri.toString() == uri }
+                val file = mediaByUri[uri]
                 Row(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
                     TextButton(onClick = { if (file != null) onPlay(file) }, modifier = Modifier.weight(1f), enabled = file != null) {
                         Text(file?.title ?: "File unavailable", maxLines = 2)
