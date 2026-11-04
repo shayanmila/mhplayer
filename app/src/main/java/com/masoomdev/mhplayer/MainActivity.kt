@@ -386,6 +386,8 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
     }
     var holdSpeedActive by remember { mutableStateOf(false) }
     var seekFeedback by remember { mutableStateOf("") }
+    var scrubbing by remember { mutableStateOf(false) }
+    var scrubPosition by remember { mutableLongStateOf(0L) }
     LaunchedEffect(selected?.uri, controlsVisible, controlsInteraction, locked, trackDialog, subtitleDialog, speedMenu, quickSettingsOpen, autoHideSeconds) {
         if (selected != null && controlsVisible && !locked && !trackDialog && !subtitleDialog && !speedMenu && !quickSettingsOpen) {
             delay(autoHideSeconds * 1000L)
@@ -506,6 +508,7 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
         if (initialUri != null) selected = LocalMedia("Opened file", initialUri, isVideoMedia(context, initialUri, activity.intent?.type), 0L, "Opened files", 0L, 0L)
     }
     LaunchedEffect(selected?.uri) {
+        scrubbing = false
         val item = selected ?: return@LaunchedEffect
         if (lastRecoveryUri != item.uri.toString()) {
             lastRecoveryUri = null
@@ -1391,8 +1394,21 @@ Full license texts and dependency notices should be made available on the develo
                     if (!audioMode && activity.resources.configuration.orientation != Configuration.ORIENTATION_LANDSCAPE) Text("SWIPE TO SEEK  •  DOUBLE TAP TO SKIP", color = Color(0xFFB9B9C9), fontSize = 9.sp, modifier = Modifier.align(Alignment.CenterHorizontally))
                     Slider(
                         modifier = Modifier.height(28.dp),
-                        value = if (duration > 0) (progress.toFloat() / duration).coerceIn(0f, 1f) else 0f,
-                        onValueChange = { if (duration > 0) player.seekTo((it * duration).toLong()); controlsInteraction++ }
+                        value = if (duration > 0) ((if (scrubbing) scrubPosition else progress).toFloat() / duration).coerceIn(0f, 1f) else 0f,
+                        onValueChange = {
+                            if (duration > 0) {
+                                scrubbing = true
+                                scrubPosition = (it * duration).toLong().coerceIn(0L, duration)
+                                controlsInteraction++
+                            }
+                        },
+                        onValueChangeFinished = {
+                            if (scrubbing) {
+                                player.seekTo(scrubPosition)
+                                scrubbing = false
+                                controlsInteraction++
+                            }
+                        }
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("${progress / 60000}:${"%02d".format(progress / 1000 % 60)}", color = foreground, fontSize = 11.sp)
