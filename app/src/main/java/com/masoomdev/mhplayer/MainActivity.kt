@@ -215,6 +215,8 @@ private suspend fun scanMedia(activity: ComponentActivity): List<LocalMedia> {
                     output.add(LocalMedia(cursor.getString(nameIndex) ?: "Unknown", ContentUris.withAppendedId(base, cursor.getLong(idIndex)), video, cursor.getLong(durationIndex), if (folderIndex >= 0) (cursor.getString(folderIndex) ?: "Other").trimEnd('/') else "Device storage", if (sizeIndex >= 0) cursor.getLong(sizeIndex) else 0L, if (dateIndex >= 0) cursor.getLong(dateIndex) else 0L))
                 }
             }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (_: Exception) { }
     }
     return output
@@ -1214,7 +1216,10 @@ Full license texts and dependency notices should be made available on the develo
                                             activity.window.attributes = params
                                         } else {
                                             val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                                            audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, (level * max).toInt().coerceIn(0, max), 0)
+                                            val targetVolume = (level * max).toInt().coerceIn(0, max)
+                                            if (audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) != targetVolume) {
+                                                audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetVolume, 0)
+                                            }
                                         }
                                     }
                                 }
@@ -1446,7 +1451,10 @@ Full license texts and dependency notices should be made available on the develo
                 if (playlistOnly) {
                     PlaylistLibrary(prefs = prefs, media = media.filter { includeAndroidMedia || !it.folder.trimStart('/').startsWith("Android/", ignoreCase = true) }, onPlay = { selected = it })
                 } else {
-                val recentItems = remember(media, recentUris) { recentUris.mapNotNull { uri -> media.firstOrNull { it.uri.toString() == uri } } }
+                val recentItems = remember(media, recentUris) {
+                    val mediaByUri = media.associateBy { it.uri.toString() }
+                    recentUris.mapNotNull(mediaByUri::get)
+                }
                 if (currentFolder == null) {
                     Spacer(Modifier.height(12.dp))
                     if (recentItems.isEmpty()) {
