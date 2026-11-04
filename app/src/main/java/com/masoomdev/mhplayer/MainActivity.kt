@@ -426,7 +426,7 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
                 }
             }
             override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
-                if (selected?.video == true && videoSize.width > 0 && videoSize.height > 0) {
+                if (selected?.video == true && !orientationLocked && videoSize.width > 0 && videoSize.height > 0) {
                     val displayWidth = videoSize.width * videoSize.pixelWidthHeightRatio
                     val desired = if (displayWidth > videoSize.height) ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
                     if (activity.requestedOrientation != desired) activity.requestedOrientation = desired
@@ -514,7 +514,7 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
         pinchZoom = 1f
         if (!rememberRatio) resizeChoice = 0
         holdSpeedActive = false
-        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        if (!orientationLocked) activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         lastPlayedUri = item.uri.toString()
         recentUris = (listOf(lastPlayedUri) + recentUris.filter { it != lastPlayedUri }).take(12)
         prefs.edit().putString("last_played_uri", lastPlayedUri).putString("recent_played_uris", recentUris.joinToString("|")).apply()
@@ -1194,7 +1194,12 @@ Full license texts and dependency notices should be made available on the develo
                                     horizontalGesture = false
                                     verticalGesture = false
                                 },
-                                onDragCancel = { gestureLevel = -1f },
+                                onDragCancel = {
+                                    gestureLevel = -1f
+                                    horizontalGesture = false
+                                    verticalGesture = false
+                                    horizontalDistance = 0f
+                                },
                                 onDrag = { change, dragAmount ->
                                     if (locked) return@detectDragGestures
                                     if (!horizontalGesture && !verticalGesture) {
