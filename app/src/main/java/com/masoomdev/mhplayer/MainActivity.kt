@@ -1451,7 +1451,7 @@ Full license texts and dependency notices should be made available on the develo
                 }
                 Text("Offline video & audio", color = secondaryText)
                 if (searchExpanded) {
-                    OutlinedTextField(value = searchText, onValueChange = { searchText = it }, label = { Text("Search files and folders") }, leadingIcon = { Icon(Icons.Default.Search, null) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = searchText, onValueChange = { searchText = it }, label = { Text("Search files and folders") }, leadingIcon = { Icon(Icons.Default.Search, null) }, trailingIcon = { if (searchText.isNotEmpty()) IconButton(onClick = { searchText = "" }) { Icon(Icons.Default.Close, "Clear search") } }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 }
                 if (playlistOnly) {
                     PlaylistLibrary(prefs = prefs, media = media.filter { includeAndroidMedia || !it.folder.trimStart('/').startsWith("Android/", ignoreCase = true) }, onPlay = { selected = it })
@@ -1567,7 +1567,13 @@ Full license texts and dependency notices should be made available on the develo
                     }
                 }
                 if (filtered.isEmpty()) Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    Text("No media found. Tap Open file to browse.", color = secondaryText)
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Icon(Icons.Default.SearchOff, null, tint = secondaryText, modifier = Modifier.size(40.dp))
+                        Text(if (searchText.isNotBlank()) "No matching files" else "No media found", color = foreground, fontSize = 18.sp)
+                        Text(if (searchText.isNotBlank()) "Try another search or clear the filter." else "Open a file or refresh your library.", color = secondaryText, fontSize = 13.sp)
+                        if (searchText.isNotBlank()) TextButton(onClick = { searchText = "" }) { Text("Clear search") }
+                        else TextButton(onClick = { filePicker.launch(arrayOf("video/*", "audio/*", "*/*")) }) { Text("Open file") }
+                    }
                 } else if (currentFolder == null && libraryView == "Folders") {
                     LazyColumn {
                         items(
