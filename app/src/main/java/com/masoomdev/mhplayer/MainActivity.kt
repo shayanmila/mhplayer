@@ -1547,13 +1547,15 @@ Full license texts and dependency notices should be made available on the develo
                 if (libraryLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
                 val filtered = remember(media, showVideo, playlistOnly, playlistUris, includeAndroidMedia, includedFolders, showHidden, searchText) {
                     val allowedFolders = includedFolders.takeIf { it.isNotBlank() }?.split("|")?.toHashSet()
+                    val playlistSet = if (playlistOnly) playlistUris.toHashSet() else emptySet()
+                    val query = searchText.trim()
                     media.filter {
                         it.video == showVideo &&
-                        (!playlistOnly || it.uri.toString() in playlistUris) &&
+                        (!playlistOnly || it.uri.toString() in playlistSet) &&
                         (includeAndroidMedia || !it.folder.trimStart('/').startsWith("Android/", ignoreCase = true)) &&
                         (allowedFolders == null || it.folder in allowedFolders) &&
                         (showHidden || (!it.title.startsWith(".") && it.folder.split("/").none { part -> part.startsWith(".") })) &&
-                        (searchText.isBlank() || it.title.contains(searchText, true) || it.folder.contains(searchText, true))
+                        (query.isBlank() || it.title.contains(query, true) || it.folder.contains(query, true))
                     }
                 }
                 val folders = remember(filtered) { filtered.groupBy { it.folder } }
