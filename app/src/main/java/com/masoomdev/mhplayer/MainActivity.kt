@@ -1429,11 +1429,13 @@ Full license texts and dependency notices should be made available on the develo
                                 "Play or pause", Modifier.size(34.dp), tint = Color.White)
                         }
                         IconButton(modifier = Modifier.size(32.dp), onClick = { player.seekToNextMediaItem(); controlsInteraction++ }) { Icon(Icons.Default.SkipNext, "Next file", tint = Color.White) }
-                        IconButton(modifier = Modifier.size(32.dp), onClick = { player.seekTo(player.currentPosition + seekSeconds * 1000); controlsInteraction++ }) {
+                        IconButton(modifier = Modifier.size(32.dp), onClick = { val end = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+                            player.seekTo((player.currentPosition + seekSeconds * 1000L).coerceIn(0L, end)); controlsInteraction++ }) {
                             Icon(Icons.Default.Forward10, "Seek forward", tint = Color.White)
                         }
                         if (activeLayout != "Cinema") TextButton(onClick = {
-                            seekSeconds = if (seekSeconds == 10L) 30L else 10L
+                            seekSeconds = when (seekSeconds) { 5L -> 10L; 10L -> 30L; else -> 5L }
+                            prefs.edit().putLong("seek_seconds", seekSeconds).apply()
                             controlsInteraction++
                         }) { Text("${seekSeconds}s", fontSize = 11.sp) }
                     }
