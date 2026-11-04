@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MH Player: White Premium Cinema launcher icon. Vector artwork keeps every density crisp. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- White rounded-square canvas -->
+    <path android:fillColor="#FFFFFF" android:pathData="M20,3 H88 Q105,3 105,20 V88 Q105,105 88,105 H20 Q3,105 3,88 V20 Q3,3 20,3 Z"/>
+    <!-- Violet corner accent -->
+    <path android:fillColor="#6F1DD4" android:pathData="M82,3 H88 Q105,3 105,20 V35 L96,26 Z"/>
+    <!-- Clapperboard body shadow and main plate -->
+    <path android:fillColor="#E7D8FF" android:pathData="M19,41 Q19,35 25,35 H75 Q81,35 81,41 V78 Q81,84 75,84 H25 Q19,84 19,78 Z"/>
+    <path android:fillColor="#6C21D7" android:pathData="M17,40 Q17,35 22,35 H73 Q78,35 78,40 V76 Q78,81 73,81 H22 Q17,81 17,76 Z"/>
+    <!-- Clapperboard top -->
+    <path android:fillColor="#21143F" android:pathData="M19,24 L69,14 Q74,13 75,18 L77,29 L21,40 Z"/>
+    <path android:fillColor="#FFFFFF" android:pathData="M24,23 L34,21 L27,36 L19,38 Z M43,19 L54,17 L46,33 L35,35 Z M63,15 L72,14 L76,25 L65,29 L56,31 Z"/>
+    <!-- Main play button -->
+    <path android:fillColor="#FFFFFF" android:pathData="M39,44 Q39,41 42,43 L62,56 Q65,58 62,60 L42,73 Q39,75 39,71 Z"/>
+    <!-- Cinema reel -->
+    <path android:fillColor="#FFFFFF" android:pathData="M76,45 A20,20 0,1 1,75.9 45 Z"/>
+    <path android:fillColor="#BDA1EE" android:pathData="M76,49 A16,16 0,1 1,75.9 49 Z"/>
+    <path android:fillColor="#3B236B" android:pathData="M76,51 A5,5 0,1 1,75.9 51 Z M64,60 A5,5 0,1 1,63.9 60 Z M88,60 A5,5 0,1 87.9 60 Z M69,72 A5,5 0,1 68.9 72 Z M83,72 A5,5 0,1 82.9 72 Z"/>
+    <!-- Clean cinema underline -->
+    <path android:fillColor="#9A57F0" android:pathData="M24,89 H84 Q87,89 87,92 Q87,95 84,95 H24 Q21,95 21,92 Q21,89 24,89 Z"/>
+</vector>
