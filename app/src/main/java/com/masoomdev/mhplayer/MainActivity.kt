@@ -1158,12 +1158,14 @@ Full license texts and dependency notices should be made available on the develo
                             var horizontalGesture = false
                             var verticalGesture = false
                             var horizontalDistance = 0f
+                            var seekStartPosition = 0L
                             detectDragGestures(
                                 onDragStart = { offset ->
                                     startX = offset.x
                                     brightnessSide = startX < size.width / 2f
                                     accumulated = 0f
                                     horizontalDistance = 0f
+                                    seekStartPosition = player.currentPosition.coerceAtLeast(0L)
                                     horizontalGesture = false
                                     verticalGesture = false
                                     startLevel = if (brightnessSide) {
@@ -1177,7 +1179,19 @@ Full license texts and dependency notices should be made available on the develo
                                     gestureLevel = -1f
                                     controlsInteraction++
                                 },
-                                onDragEnd = { gestureLevel = -1f; horizontalGesture = false; verticalGesture = false },
+                                onDragEnd = {
+                                    if (horizontalGesture) {
+                                        val seekMs = (horizontalDistance / size.width.coerceAtLeast(1).toFloat() * 60000f).toLong()
+                                        if (kotlin.math.abs(seekMs) >= 500L) {
+                                            val end = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+                                            player.seekTo((seekStartPosition + seekMs).coerceIn(0L, end))
+                                            controlsInteraction++
+                                        }
+                                    }
+                                    gestureLevel = -1f
+                                    horizontalGesture = false
+                                    verticalGesture = false
+                                },
                                 onDragCancel = { gestureLevel = -1f },
                                 onDrag = { change, dragAmount ->
                                     if (locked) return@detectDragGestures
@@ -1188,13 +1202,7 @@ Full license texts and dependency notices should be made available on the develo
                                     if (horizontalGesture) {
                                         change.consume()
                                         horizontalDistance += dragAmount.x
-                                        val seekMs = (horizontalDistance / size.width.coerceAtLeast(1).toFloat() * 60000f).toLong()
-                                        if (kotlin.math.abs(seekMs) >= 500L) {
-                                            val end = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
-                                            player.seekTo((player.currentPosition + seekMs).coerceIn(0L, end))
-                                            horizontalDistance = 0f
-                                            controlsInteraction++
-                                        }
+                                        // Seek once on release to avoid decoder flushes during drag.
                                     } else if (verticalGesture && (if (brightnessSide) brightnessGesture else volumeGesture)) {
                                         change.consume()
                                         accumulated -= dragAmount.y / size.height.coerceAtLeast(1).toFloat()
