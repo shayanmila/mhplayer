@@ -63,6 +63,21 @@ jobs:
           MH_KEY_ALIAS: ${{ secrets.MH_KEY_ALIAS }}
           MH_KEY_PASSWORD: ${{ secrets.MH_KEY_PASSWORD }}
         run: gradle :app:assembleRelease :app:bundleRelease --no-daemon --stacktrace
+      - name: Verify launcher icon in signed main APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          AAPT2="$(find "$ANDROID_HOME/build-tools" -name aapt2 -type f | sort -V | tail -1)"
+          test -x "$AAPT2"
+          "$AAPT2" dump badging app/build/outputs/apk/release/app-release.apk | tee "$RUNNER_TEMP/main-apk-badging.txt"
+          grep -q "application-icon-" "$RUNNER_TEMP/main-apk-badging.txt" || {
+            echo "::error::Main APK has no launcher icon in packaged resources"
+            exit 1
+          }
+          grep -q "launchable-activity:" "$RUNNER_TEMP/main-apk-badging.txt" || {
+            echo "::error::Main APK has no launcher activity"
+            exit 1
+          }
       - name: Preserve original outputs
         shell: bash
         run: |
