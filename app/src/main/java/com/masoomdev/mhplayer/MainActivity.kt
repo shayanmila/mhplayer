@@ -1559,6 +1559,16 @@ Full license texts and dependency notices should be made available on the develo
                     }
                 }
                 val folders = remember(filtered) { filtered.groupBy { it.folder } }
+                val orderedFolders = remember(folders, sortMode, sortDescending) {
+                    val groups = folders.entries.toList()
+                    val ordered = when (sortMode) {
+                        "Date" -> groups.sortedWith(compareBy({ it.value.maxOfOrNull { entry -> entry.dateAdded } ?: 0L }, { it.key.lowercase() }))
+                        "Duration" -> groups.sortedWith(compareBy({ it.value.sumOf { entry -> entry.duration.coerceAtLeast(0L) } }, { it.key.lowercase() }))
+                        "Size" -> groups.sortedWith(compareBy({ it.value.sumOf { entry -> entry.size.coerceAtLeast(0L) } }, { it.key.lowercase() }))
+                        else -> groups.sortedBy { it.key.lowercase() }
+                    }
+                    if (sortDescending) ordered.reversed() else ordered
+                }
                 if (floatingResume && lastPlayedUri.isNotBlank()) {
                     val resumeItem = media.firstOrNull { it.uri.toString() == lastPlayedUri }
                     if (resumeItem != null) TextButton(onClick = { selected = resumeItem }) {
@@ -1576,18 +1586,7 @@ Full license texts and dependency notices should be made available on the develo
                     }
                 } else if (currentFolder == null && libraryView == "Folders") {
                     LazyColumn {
-                        items(
-                            folders.entries.let { groups ->
-                                val orderedFolders = when (sortMode) {
-                                    "Date" -> groups.sortedWith(compareBy({ it.value.maxOfOrNull { media -> media.dateAdded } ?: 0L }, { it.key.lowercase() }))
-                                    "Duration" -> groups.sortedWith(compareBy({ it.value.sumOf { media -> media.duration.coerceAtLeast(0L) } }, { it.key.lowercase() }))
-                                    "Size" -> groups.sortedWith(compareBy({ it.value.sumOf { media -> media.size.coerceAtLeast(0L) } }, { it.key.lowercase() }))
-                                    else -> groups.sortedBy { it.key.lowercase() }
-                                }
-                                if (sortDescending) orderedFolders.reversed() else orderedFolders
-                            },
-                            key = { it.key }
-                        ) { folder ->
+                        items(orderedFolders, key = { it.key }) { folder ->
                             Row(Modifier.fillMaxWidth().clickable { currentFolder = folder.key }.padding(vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Folder, null, tint = purple, modifier = Modifier.size(36.dp))
                                 Spacer(Modifier.width(14.dp))
