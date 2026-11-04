@@ -195,8 +195,9 @@ class MainActivity : ComponentActivity() {
 
 private suspend fun scanMedia(activity: ComponentActivity): List<LocalMedia> {
     val output = mutableListOf<LocalMedia>()
-    val permissionVideo = Build.VERSION.SDK_INT < 33 || activity.checkSelfPermission(Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
-    val permissionAudio = Build.VERSION.SDK_INT < 33 || activity.checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
+    val legacyPermission = Build.VERSION.SDK_INT >= 33 || activity.checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+    val permissionVideo = if (Build.VERSION.SDK_INT >= 33) activity.checkSelfPermission(Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED else legacyPermission
+    val permissionAudio = if (Build.VERSION.SDK_INT >= 33) activity.checkSelfPermission(Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED else legacyPermission
     for (video in listOf(true, false)) {
         if ((video && !permissionVideo) || (!video && !permissionAudio)) continue
         val base = if (video) MediaStore.Video.Media.EXTERNAL_CONTENT_URI else MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
