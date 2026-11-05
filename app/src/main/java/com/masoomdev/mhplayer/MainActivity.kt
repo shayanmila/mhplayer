@@ -1183,7 +1183,8 @@ Full license texts and dependency notices should be made available on the develo
                                 color = Color(0xFFB9C4D8), fontSize = 12.sp)
                         }
                     }
-                    if (!pipActive) Box(Modifier.fillMaxSize()
+                    // Video-only gesture layer: audio controls must receive their own taps.
+                    if (!pipActive && !audioMode) Box(Modifier.fillMaxSize()
                         .pointerInput(audioMode, locked) {
                             detectTransformGestures { _, _, zoom, _ ->
                                 if (!audioMode && !locked && zoom != 1f) {
