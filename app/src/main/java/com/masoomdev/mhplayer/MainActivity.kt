@@ -305,7 +305,7 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
     var newTagDays by remember { mutableIntStateOf(prefs.getInt("list_new_days", 7)) }
     var includeAndroidMedia by remember { mutableStateOf(prefs.getBoolean("include_android_media", false)) }
     var videoLayout by remember { mutableStateOf(prefs.getString("video_layout", "Classic") ?: "Classic") }
-    var audioLayout by remember { mutableStateOf(prefs.getString("audio_layout", "Classic") ?: "Classic") }
+    var audioLayout by remember { mutableStateOf(prefs.getString("audio_layout", "MP3 Player") ?: "MP3 Player") }
     var themeChoice by remember { mutableStateOf(prefs.getString("ui_theme", "White") ?: "White") }
     val lightTheme = themeChoice == "White" || (themeChoice == "System" && !isSystemInDarkTheme())
     val dark = when { lightTheme -> Color(0xFFF8F9FD); themeChoice == "Dark" || themeChoice == "System" -> Color(0xFF111318); else -> Color(0xFF0D1020) }
@@ -1046,7 +1046,7 @@ Full license texts and dependency notices should be made available on the develo
                             }
                             Text("Audio player layout", color = foreground)
                             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                listOf("Classic", "Modern", "Studio").forEach { option ->
+                                listOf("MP3 Player", "Classic", "Modern", "Studio").forEach { option ->
                                     FilterChip(selected = audioLayout == option, onClick = { audioLayout = option; prefs.edit().putString("audio_layout", option).apply() }, label = { Text(option) })
                                 }
                             }
@@ -1085,6 +1085,62 @@ Full license texts and dependency notices should be made available on the develo
                 Box(Modifier.fillMaxSize()) {
                     if (!audioMode) {
                         AndroidView(factory = { ctx -> (android.view.LayoutInflater.from(ctx).inflate(com.masoomdev.mhplayer.R.layout.mh_video_view, null) as PlayerView).apply { this.player = player; useController = false } }, modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = pinchZoom; scaleY = pinchZoom }, update = { it.resizeMode = if (resizeChoice in 0..4) resizeChoice else 3;  })
+
+                    } else if (activeLayout == "MP3 Player") {
+                        Column(
+                            Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 65.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
+                                color = Color(0xFF282828),
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp)
+                            ) {
+                                Column(Modifier.padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth().weight(1f),
+                                        color = Color(0xFF101222),
+                                        shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                                    ) {
+                                        Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                                Text("MH PLAYER", color = Color.White, fontSize = 12.sp)
+                                                Text("♫  ${player.currentMediaItemIndex + 1}/${player.mediaItemCount.coerceAtLeast(1)}", color = Color(0xFFB2F6A8), fontSize = 12.sp)
+                                            }
+                                            Spacer(Modifier.weight(1f))
+                                            Box(Modifier.size(156.dp).background(Color(0xFF30235E), androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+                                                Box(Modifier.size(122.dp).background(Color(0xFF15172D), androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+                                                    Box(Modifier.size(48.dp).background(Color(0xFFE58BC4), androidx.compose.foundation.shape.CircleShape), contentAlignment = Alignment.Center) {
+                                                        Box(Modifier.size(10.dp).background(Color(0xFF15172D), androidx.compose.foundation.shape.CircleShape))
+                                                    }
+                                                }
+                                            }
+                                            Spacer(Modifier.weight(1f))
+                                            Text(selected?.title ?: "Audio", color = Color.White, fontSize = 17.sp, maxLines = 2)
+                                            Text("${progress / 60000}:${"%02d".format(progress / 1000 % 60)} / ${duration.coerceAtLeast(0L) / 60000}:${"%02d".format(duration.coerceAtLeast(0L) / 1000 % 60)}", color = Color.White, fontSize = 13.sp)
+                                            Slider(
+                                                value = if (duration > 0L) (progress.toFloat() / duration).coerceIn(0f, 1f) else 0f,
+                                                onValueChange = { if (duration > 0L) player.seekTo((it * duration).toLong()) },
+                                                modifier = Modifier.height(28.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(Modifier.height(20.dp))
+                                    Surface(shape = androidx.compose.foundation.shape.CircleShape, color = Color(0xFF171717), modifier = Modifier.size(196.dp)) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceEvenly) {
+                                            TextButton(onClick = { expandedControls = !expandedControls }) { Text("M", color = Color.White) }
+                                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+                                                IconButton(onClick = { player.seekToPreviousMediaItem() }) { Icon(Icons.Default.SkipPrevious, "Previous", tint = Color.White) }
+                                                IconButton(onClick = { if (player.isPlaying) player.pause() else player.play() }) { Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play or pause", tint = Color.White) }
+                                                IconButton(onClick = { player.seekToNextMediaItem() }) { Icon(Icons.Default.SkipNext, "Next", tint = Color.White) }
+                                            }
+                                            TextButton(onClick = { muted = !muted; player.volume = if (muted) 0f else 1f }) { Text(if (muted) "UNMUTE" else "VOL", color = Color.White) }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     } else {
                         // Default animated music artwork for audio without embedded cover art.
                         // Animation pauses with playback; video rendering remains untouched.
@@ -1278,7 +1334,7 @@ Full license texts and dependency notices should be made available on the develo
 
                     }
                 }
-                if (!pipActive && !locked && !expandedControls && (controlsVisible || audioMode)) {
+                if (!pipActive && !locked && !expandedControls && (controlsVisible || audioMode) && !(audioMode && activeLayout == "MP3 Player")) {
                     Row(Modifier.align(Alignment.TopStart).padding(top = 54.dp, start = 4.dp).background(Color.Transparent), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { backgroundPlay = !backgroundPlay; prefs.edit().putBoolean("background_play", backgroundPlay).apply(); controlsInteraction++ }) { Icon(Icons.Default.Headphones, if (backgroundPlay) "Background playback on" else "Background playback off", tint = if (backgroundPlay) Color.White else Color.White.copy(alpha = 0.65f)) }
                         IconButton(onClick = { orientationLocked = !orientationLocked; activity.requestedOrientation = if (orientationLocked) (if (activity.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT) else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED; controlsInteraction++ }) { Icon(Icons.Default.ScreenRotation, "Orientation lock", tint = Color.White) }
@@ -1387,7 +1443,7 @@ Full license texts and dependency notices should be made available on the develo
                         }
                     }
                 }
-                if (!pipActive && !locked && !expandedControls && (controlsVisible || audioMode)) Column(
+                if (!pipActive && !locked && !expandedControls && (controlsVisible || audioMode) && !(audioMode && activeLayout == "MP3 Player")) Column(
                     Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                         .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom))
                         .background(Color.Transparent).padding(start = 6.dp, end = 6.dp, top = 0.dp, bottom = 4.dp)
