@@ -1361,13 +1361,15 @@ Full license texts and dependency notices should be made available on the develo
                 }
                 if (!pipActive && !expandedControls && (controlsVisible || locked || audioMode)) Column(
                     Modifier.align(Alignment.TopCenter).fillMaxWidth()
-                        .background(Color.Transparent).padding(horizontal = 4.dp, vertical = 1.dp)
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .background(Color(0x99090D16))
+                        .padding(horizontal = 4.dp, vertical = 1.dp)
                 ) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { if (locked) locked = false else closePlayer() }) {
                             Icon(Icons.Default.ArrowBack, "Back", tint = foreground)
                         }
-                        Column(Modifier.weight(1f)) { Text(selected?.title ?: "", color = foreground, maxLines = 1, fontSize = 16.sp); Text(if (audioMode) "AUDIO PLAYER" else "VIDEO PLAYER", color = Color(0xFFB5A1FF), fontSize = 10.sp) }
+                        Column(Modifier.weight(1f)) { Text(selected?.title ?: "", color = Color.White, maxLines = 1, fontSize = 16.sp); Text(if (audioMode) "AUDIO PLAYER" else "VIDEO PLAYER", color = Color(0xFFD1C7FF), fontSize = 10.sp) }
 
                     }
                 }
