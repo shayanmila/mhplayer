@@ -410,6 +410,11 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 trackRevision++
                 if (playbackState == Player.STATE_READY) recoveryAttempts = 0
+                if (playbackState == Player.STATE_ENDED) {
+                    player.currentMediaItem?.localConfiguration?.uri?.let { finishedUri ->
+                        prefs.edit().putLong("position_$finishedUri", 0L).apply()
+                    }
+                }
                 if (playbackState == Player.STATE_ENDED && playlistOnly && selected != null && !player.hasNextMediaItem()) {
                     val queue = media.filter { it.uri.toString() in playlistUris && it.video == showVideo }
                     val index = queue.indexOfFirst { it.uri == selected?.uri }
@@ -522,6 +527,10 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
         recentUris = (listOf(lastPlayedUri) + recentUris.filter { it != lastPlayedUri }).take(12)
         prefs.edit().putString("last_played_uri", lastPlayedUri).putString("recent_played_uris", recentUris.joinToString("|")).apply()
         val alreadyPlaying = player.currentMediaItem?.localConfiguration?.uri == item.uri && player.mediaItemCount > 0
+        if (alreadyPlaying && player.playbackState == Player.STATE_ENDED) {
+            player.seekTo(0L)
+            player.play()
+        }
         if (!alreadyPlaying) {
             val queue = if (playlistOnly) media.filter { it.uri.toString() in playlistUris && it.video == showVideo }
                 .let { if (it.any { entry -> entry.uri == item.uri }) it else listOf(item) }
@@ -535,9 +544,11 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
                     .build()
             }
             val index = queue.indexOfFirst { it.uri == item.uri }.coerceAtLeast(0)
-            val saved = if (resumePlayback) prefs.getLong("position_${item.uri}", 0L).coerceAtLeast(0L) else 0L
-            player.setMediaItems(items, index, saved)
-            player.playWhenReady = autoPlay
+            val storedPosition = if (resumePlayback) prefs.getLong("position_${item.uri}", 0L).coerceAtLeast(0L) else 0L
+            val storedDuration = prefs.getLong("duration_${item.uri}", 0L)
+            val finished = storedDuration > 0L && storedPosition >= (storedDuration - 1500L).coerceAtLeast(0L)
+            player.setMediaItems(items, index, if (finished) 0L else storedPosition)
+            player.playWhenReady = autoPlay || finished
             player.prepare()
         }
         locked = false
@@ -559,14 +570,20 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
             if (playing != nextPlaying) playing = nextPlaying
             val now = android.os.SystemClock.elapsedRealtime()
             if (nextProgress > 0 && now - lastSavedAt >= 5000L) {
-                prefs.edit().putLong("position_${current.uri}", nextProgress).putLong("duration_${current.uri}", nextDuration).apply()
+                val finished = player.playbackState == Player.STATE_ENDED || (nextDuration > 0L && nextProgress >= (nextDuration - 1500L).coerceAtLeast(0L))
+                prefs.edit().putLong("position_${current.uri}", if (finished) 0L else nextProgress).putLong("duration_${current.uri}", nextDuration).apply()
                 lastSavedAt = now
             }
             delay(if (nextPlaying) 1000L else 1500L)
         }
     }
     fun closePlayer() {
-        selected?.let { prefs.edit().putLong("position_${it.uri}", player.currentPosition.coerceAtLeast(0L)).putLong("duration_${it.uri}", player.duration.coerceAtLeast(0L)).apply() }
+        selected?.let {
+            val position = player.currentPosition.coerceAtLeast(0L)
+            val length = player.duration.coerceAtLeast(0L)
+            val finished = player.playbackState == Player.STATE_ENDED || (length > 0L && position >= (length - 1500L).coerceAtLeast(0L))
+            prefs.edit().putLong("position_${it.uri}", if (finished) 0L else position).putLong("duration_${it.uri}", length).apply()
+        }
         player.pause(); player.clearMediaItems(); if (holdSpeedActive) player.setPlaybackSpeed(playbackSpeed); holdSpeedActive = false; selected = null; locked = false; pinchZoom = 1f; activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED; activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
     androidx.compose.runtime.DisposableEffect(selected, pipActive) {
         val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
