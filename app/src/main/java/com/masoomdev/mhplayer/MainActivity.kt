@@ -64,6 +64,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -306,6 +307,8 @@ private fun PlayerApp(activity: MainActivity, initialUri: Uri?) {
     var includeAndroidMedia by remember { mutableStateOf(prefs.getBoolean("include_android_media", false)) }
     var videoLayout by remember { mutableStateOf(prefs.getString("video_layout", "Classic") ?: "Classic") }
     var audioLayout by remember { mutableStateOf(prefs.getString("audio_layout", "MP3 Player") ?: "MP3 Player") }
+    var audioColorTheme by remember { mutableStateOf(prefs.getString("audio_color_theme", "Dark") ?: "Dark") }
+    var audioThemeMenu by remember { mutableStateOf(false) }
     var themeChoice by remember { mutableStateOf(prefs.getString("ui_theme", "White") ?: "White") }
     val lightTheme = themeChoice == "White" || (themeChoice == "System" && !isSystemInDarkTheme())
     val dark = when { lightTheme -> Color(0xFFF8F9FD); themeChoice == "Dark" || themeChoice == "System" -> Color(0xFF111318); else -> Color(0xFF0D1020) }
@@ -1079,9 +1082,26 @@ Full license texts and dependency notices should be made available on the develo
             val audioMode = selected?.video == false
             val activeLayout = if (audioMode) audioLayout else videoLayout
             val overlayText = Color.White
+            val audioWhite = audioMode && audioColorTheme == "White"
+            val audioDeviceColor = when (audioColorTheme) {
+                "White" -> Color(0xFFF3F4F7)
+                "Purple" -> Color(0xFF392565)
+                "Ocean" -> Color(0xFF17465B)
+                else -> Color(0xFF282828)
+            }
+            val audioScreenColor = if (audioWhite) Color(0xFFE3EAF4) else Color(0xFF101222)
+            val audioButtonColor = if (audioWhite) Color(0xFFDEE1E7) else Color(0xFF171717)
+            val audioInk = if (audioWhite) Color(0xFF202534) else Color.White
             // Keep the audio playback surface dark so white transport controls remain visible
             // even when the app's library theme is light.
-            Box(Modifier.fillMaxSize().background(if (audioMode) Color(0xFF090D16) else Color.Black)) {
+            Box(Modifier.fillMaxSize().background(
+                if (audioMode) when (audioColorTheme) {
+                    "White" -> Brush.verticalGradient(listOf(Color(0xFFF9FAFC), Color(0xFFDCE3ED)))
+                    "Purple" -> Brush.linearGradient(listOf(Color(0xFF17132C), Color(0xFF6D39A0), Color(0xFF24204D)))
+                    "Ocean" -> Brush.linearGradient(listOf(Color(0xFF082D3B), Color(0xFF208B9E), Color(0xFF152C54)))
+                    else -> Brush.verticalGradient(listOf(Color(0xFF090D16), Color(0xFF090D16)))
+                } else Brush.verticalGradient(listOf(Color.Black, Color.Black))
+            )) {
                 Box(Modifier.fillMaxSize()) {
                     if (!audioMode) {
                         AndroidView(factory = { ctx -> (android.view.LayoutInflater.from(ctx).inflate(com.masoomdev.mhplayer.R.layout.mh_video_view, null) as PlayerView).apply { this.player = player; useController = false } }, modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = pinchZoom; scaleY = pinchZoom }, update = { it.resizeMode = if (resizeChoice in 0..4) resizeChoice else 3;  })
@@ -1094,18 +1114,18 @@ Full license texts and dependency notices should be made available on the develo
                         ) {
                             Surface(
                                 modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
-                                color = Color(0xFF282828),
+                                color = audioDeviceColor,
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp)
                             ) {
                                 Column(Modifier.padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                     Surface(
                                         modifier = Modifier.fillMaxWidth().weight(1f),
-                                        color = Color(0xFF101222),
+                                        color = audioScreenColor,
                                         shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
                                     ) {
                                         Column(Modifier.padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                Text("MH PLAYER", color = Color.White, fontSize = 12.sp)
+                                                Text("MH PLAYER", color = audioInk, fontSize = 12.sp)
                                                 Text("♫  ${player.currentMediaItemIndex + 1}/${player.mediaItemCount.coerceAtLeast(1)}", color = Color(0xFFB2F6A8), fontSize = 12.sp)
                                             }
                                             Spacer(Modifier.weight(1f))
@@ -1117,7 +1137,7 @@ Full license texts and dependency notices should be made available on the develo
                                                 }
                                             }
                                             Spacer(Modifier.weight(1f))
-                                            Text(selected?.title ?: "Audio", color = Color.White, fontSize = 17.sp, maxLines = 2)
+                                            Text(selected?.title ?: "Audio", color = audioInk, fontSize = 17.sp, maxLines = 2)
                                             Text("${progress / 60000}:${"%02d".format(progress / 1000 % 60)} / ${duration.coerceAtLeast(0L) / 60000}:${"%02d".format(duration.coerceAtLeast(0L) / 1000 % 60)}", color = Color.White, fontSize = 13.sp)
                                             Slider(
                                                 value = if (duration > 0L) (progress.toFloat() / duration).coerceIn(0f, 1f) else 0f,
@@ -1127,15 +1147,15 @@ Full license texts and dependency notices should be made available on the develo
                                         }
                                     }
                                     Spacer(Modifier.height(20.dp))
-                                    Surface(shape = androidx.compose.foundation.shape.CircleShape, color = Color(0xFF171717), modifier = Modifier.size(196.dp)) {
+                                    Surface(shape = androidx.compose.foundation.shape.CircleShape, color = audioButtonColor, modifier = Modifier.size(196.dp)) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceEvenly) {
-                                            TextButton(onClick = { expandedControls = !expandedControls }) { Text("M", color = Color.White) }
+                                            TextButton(onClick = { expandedControls = !expandedControls }) { Text("M", color = audioInk) }
                                             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                                                IconButton(onClick = { player.seekToPreviousMediaItem() }) { Icon(Icons.Default.SkipPrevious, "Previous", tint = Color.White) }
-                                                IconButton(onClick = { if (player.isPlaying) player.pause() else player.play() }) { Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play or pause", tint = Color.White) }
-                                                IconButton(onClick = { player.seekToNextMediaItem() }) { Icon(Icons.Default.SkipNext, "Next", tint = Color.White) }
+                                                IconButton(onClick = { player.seekToPreviousMediaItem() }) { Icon(Icons.Default.SkipPrevious, "Previous", tint = audioInk) }
+                                                IconButton(onClick = { if (player.isPlaying) player.pause() else player.play() }) { Icon(if (playing) Icons.Default.Pause else Icons.Default.PlayArrow, "Play or pause", tint = audioInk) }
+                                                IconButton(onClick = { player.seekToNextMediaItem() }) { Icon(Icons.Default.SkipNext, "Next", tint = audioInk) }
                                             }
-                                            TextButton(onClick = { muted = !muted; player.volume = if (muted) 0f else 1f }) { Text(if (muted) "UNMUTE" else "VOL", color = Color.White) }
+                                            TextButton(onClick = { muted = !muted; player.volume = if (muted) 0f else 1f }) { Text(if (muted) "UNMUTE" else "VOL", color = audioInk) }
                                         }
                                     }
                                 }
@@ -1319,6 +1339,22 @@ Full license texts and dependency notices should be made available on the develo
                                 Text((if (gestureBrightness) "Brightness " else "Volume ") + "${(gestureLevel * 100).toInt()}%", color = foreground)
                                 Spacer(Modifier.height(8.dp))
                                 LinearProgressIndicator(progress = { gestureLevel }, modifier = Modifier.width(130.dp))
+                            }
+                        }
+                    }
+                }
+                if (audioMode && !pipActive && !locked) {
+                    Box(Modifier.align(Alignment.BottomEnd).windowInsetsPadding(WindowInsets.navigationBars).padding(end = 18.dp, bottom = 22.dp)) {
+                        IconButton(onClick = { audioThemeMenu = true }, modifier = Modifier.background(Color(0xCC30303A), androidx.compose.foundation.shape.CircleShape)) {
+                            Icon(Icons.Default.Palette, "Audio colour themes", tint = Color.White)
+                        }
+                        DropdownMenu(expanded = audioThemeMenu, onDismissRequest = { audioThemeMenu = false }) {
+                            listOf("Dark", "White", "Purple", "Ocean").forEach { option ->
+                                DropdownMenuItem(text = { Text(if (audioColorTheme == option) "✓ $option" else option) }, onClick = {
+                                    audioColorTheme = option
+                                    prefs.edit().putString("audio_color_theme", option).apply()
+                                    audioThemeMenu = false
+                                })
                             }
                         }
                     }
